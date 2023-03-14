@@ -197,6 +197,15 @@ class AgentState(SupportsClose, SupportsReset, CoreStateBehavior):
     ...
 ```
 
+Consider having project specific attributes on agents that can be specified 
+in the Scene TOML.
+
+```toml
+[[agents]]
+id: 1
+project_specific_attribute: 123
+```
+
 **Tasks**
 - [ ] Define abstract classes for the injectable aspects of agents.
 - [ ] Provide a defaults for the various agent aspects (e.g. AgentState)
