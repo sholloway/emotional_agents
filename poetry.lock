@@ -8,7 +8,7 @@ category = "dev"
 optional = false
 python-versions = ">=3.11.1,<4.0.0"
 files = [
-    {file = "agents_playground-0.1.0-py3-none-any.whl", hash = "sha256:ef8640f8a71a7860e86253f1675c9fe360b4d11811027551205948956016d7e9"},
+    {file = "agents_playground-0.1.0-py3-none-any.whl", hash = "sha256:bb218bc410332c3a7582dd816d4e429f02d684b737906fd46585f94a82314eb4"},
 ]
 
 [package.dependencies]
