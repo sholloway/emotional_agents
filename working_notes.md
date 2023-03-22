@@ -24,15 +24,21 @@ Can we expand this definition to include subsystems?
 
 ```python
 from more_itertools import consume
+from types import OrderedDict
 
 class AgentSystem(Protocol):
   name: str
-  subsystems: Dict[str, AgentSystem]
+  subsystems: OrderedDict[str, AgentSystem]
 
   def process(self) -> None:
     self.before_subsystems_processed()
     self.process_subsystems()
     self.after_subsystems_processed() 
+
+  def register_system(self, system: AgentSystem) -> Self:
+    if system.name not in self.internal_systems:
+      self.internal_systems[system.name] = system
+    return self 
 
   def process_subsystems(self) -> None:
     consume(map(lambda subsystem: subsystem.process(), self.subsystems.items())) 
@@ -44,7 +50,7 @@ class AgentSystem(Protocol):
     pass
 
 class AgentLike(Protocol):
-  internal_systems: Dict[str, AgentSystem]
+  internal_systems: OrderedDict[str, AgentSystem]
 
   def register_system(self, system: AgentSystem) -> Self:
     if system.name not in self.internal_systems:
@@ -70,7 +76,33 @@ class EmotionalAgent(AgentLike):
   def __init__(self) -> None:
     self.register_system(ImmuneSystem())
     self.register_system(MuscularSystem())
+```
 
+The use of a dict or OrderedDict to store the systems is giving me heartburn.
+I don't like the idea of having to lookup systems with self.internal_systems['some system name']
+
+A SimpleNamespace would enable named attribute lookup. If these are registered 
+via TOML, then the SceneBuilder can produce a SimpleNamespace of the registered
+systems. 
+
+```python
+from more_itertools import consume
+from types import SimpleNamespace
+
+class AgentSystem(Protocol):
+  name: str
+  subsystems: SimpleNamespace
+
+  def register_system(self, system: AgentSystem) -> Self:
+    if not hasattr(self.internal_systems, system.name):
+      self.internal_systems.__setattr__(system.name, system)
+    return self 
+```
+
+This will enable implementations to be able to access systems as attributes.
+
+```python
+self.internal_systems.muscular_system.refresh()
 ```
 
 ## Feedback Loops
