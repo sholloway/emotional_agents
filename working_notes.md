@@ -151,34 +151,60 @@ May need a tree style data structure rather than just a dict.
 ```python
 from random import choices
 from more_itertools import first_true
+from abc import abstractmethod
 
-class Likelihood:
+class CoinFlip(Protocol):
+  @abstractmethod
+  def flip(self) -> bool:
+    """
+    Flip a coin to determine an outcome.
+    Returns True when heads is flipped.
+    """
+    ...
+
+class WeightedCoin(CoinFlip):
   coin: str = (1,0) # heads or tails.
+
   def __init__(self, weight: float) -> None:
     self.weight = weight
 
-  def coin_flip(self) -> bool:
+  def flip(self) -> bool:
     """
     Flip a weighted coin based on the likelihood value, calculate whether to do an action or not.
     Returns True when heads is flipped.
     """
-    return choices(Likelihood.coin, cum_weights=(self.weight, 1.00), k = 1)[0] == 1
+    return choices(WeightedLikelihood.coin, cum_weights=(self.weight, 1.00), k = 1)[0] == 1
+
+class SureThingTransition(CoinFlip)
+  """
+  A biased coin that always returns heads.
+  """
+  def flip(self) -> bool:
+    return True  
+
+def always_transition() -> bool:
+  return True
 
 class AgentStateTransitionRule(NamedTuple):
   state_name: str
   transition_to: str
-  condition: Callable[AgentLike, bool] # Give this a function that always returns true rather than make it optional.
-  likelihood: Likelihood
-
+  condition: Callable[AgentLike, bool]
+  likelihood: CoinFlip
 
 class AgentActionStateRulesSet:
   rules: List[AgentStateTransitionRule]
 
   def evaluate(self, agent: AgentLike) -> AgentActionStateLike:
+    """
+    Use Case 1: Just conditions. Loop until a rule's condition returns true.
+    Use Case 2: Likelihoods are set. Loop until a rule's condition returns true 
+                AND the likelihood evaluates to true.
+    """
+
     first_true(
       self.rules, 
       default = self._handle_no_state_transition,
-      pred = lambda rule: rule.condition(agent))
+      pred = lambda rule: rule.condition(agent) and rule.likelihood.flip())
 
 class FancyPantsAgentActionSelector(AgentActionSelector):
   def __init__(self) -> None:
