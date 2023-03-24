@@ -95,7 +95,7 @@ class AgentSystem(Protocol):
 
   def register_system(self, system: AgentSystem) -> Self:
     if not hasattr(self.internal_systems, system.name):
-      self.internal_systems.__setattr__(system.name, system)
+      self.subsystems.__setattr__(system.name, system)
     return self 
 ```
 
@@ -105,6 +105,89 @@ This will enable implementations to be able to access systems as attributes.
 self.internal_systems.muscular_system.refresh()
 ```
 
+## TOML Based State Map
+If state-type isn't specified the scene builder could use NamedAgentState(name).
+```toml
+# Declare states
+scene.agent-states = [
+  { name = '', state-type=''}
+]
+
+# Define the state map.
+# state (required): The name of the starting state. 
+# transitions-to (required): The name of the state to transition to.
+#
+# when (optional): 
+# The name of a conditional function to determine if the transition
+# should occur. 
+#
+# likelihood (optional): 
+# Supports probability based state rules. A value between 0 and 1. Where 
+# 1 means it has 100% probability of the transition occurring and 0 means
+# there is no chance. 
+# 
+# If both 'when' and 'likelihood' are present, the 'when' condition is ran first.
+# if it evaluates to True, then the likelihood function is ran. If both are true
+# then the transition occurs.                          
+#
+# Being able to define this in a table in the GUI would be helpful.
+# Having a way to visualize this would also be helpful.
+scene.agent-state-transitions = [
+  { state = '<state-name>', transitions-to = '<state-name>', when='<condition>', likelihood='<>'}
+]
+```
+
+# What is the underlying data structure to support a complex, conditional-based
+# transition table with optional fuzzy rules?
+
+Considerations
+- A starting state can have multiple rules... Assuming rules need to be run
+  in the order they are declared.
+- Rules are executed based on optional condition functions.
+- Rules are executed based on probabilities. 
+
+May need a tree style data structure rather than just a dict.
+
+```python
+from random import choices
+from more_itertools import first_true
+
+class Likelihood:
+  coin: str = (1,0) # heads or tails.
+  def __init__(self, weight: float) -> None:
+    self.weight = weight
+
+  def coin_flip(self) -> bool:
+    """
+    Flip a weighted coin based on the likelihood value, calculate whether to do an action or not.
+    Returns True when heads is flipped.
+    """
+    return choices(Likelihood.coin, cum_weights=(self.weight, 1.00), k = 1)[0] == 1
+
+class AgentStateTransitionRule(NamedTuple):
+  state_name: str
+  transition_to: str
+  condition: Callable[AgentLike, bool] # Give this a function that always returns true rather than make it optional.
+  likelihood: Likelihood
+
+
+class AgentActionStateRulesSet:
+  rules: List[AgentStateTransitionRule]
+
+  def evaluate(self, agent: AgentLike) -> AgentActionStateLike:
+    first_true(
+      self.rules, 
+      default = self._handle_no_state_transition,
+      pred = lambda rule: rule.condition(agent))
+
+class FancyPantsAgentActionSelector(AgentActionSelector):
+  def __init__(self) -> None:
+    self._state_map: dict[AgentActionStateLike, AgentActionStateRulesSet]
+
+  def next_action(self, agent: AgentLike, current_action: AgentActionStateLike) -> AgentActionStateLike:
+    return self._state_map.get(current_action, NoAgentActionStateRulesSet()).evaluate(agent)
+```
+
 ## Feedback Loops
 - Mental Systems Drive Behavior (i.e. Next Action)
 - Physical Systems influence mental systems. 
@@ -112,6 +195,7 @@ self.internal_systems.muscular_system.refresh()
   If the body is hungry, the agent may feel irritable.
 - Physical systems have sensors that propagate sensation.
   Stimuli -> Sensations -> Emotion -> (Moods | Feelings/Beliefs) -> Behavior
+
 
 ## What are the hierarchy of States?
 
